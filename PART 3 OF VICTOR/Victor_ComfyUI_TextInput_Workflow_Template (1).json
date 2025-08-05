@@ -1,0 +1,99 @@
+{
+    "meta": {
+        "name": "Victor_TextInput_Speech_Workflow",
+        "version": "1.0",
+        "author": "Bando Bandz AI Ops",
+        "created": "2025-04-23T14:52:51.863252",
+        "description": "Victor pipeline: text \u2192 NLP \u2192 memory \u2192 emotion \u2192 directive \u2192 echo \u2192 persona \u2192 speech"
+    },
+    "nodes": [
+        {
+            "id": "nlp_engine",
+            "class": "VictorNlpEngineNode",
+            "inputs": [],
+            "outputs": [
+                "tokens",
+                "semantic_vector"
+            ],
+            "params": {
+                "input_text": "The world is shifting fast. Are you ready, Victor?"
+            }
+        },
+        {
+            "id": "memory_core",
+            "class": "VictorMemoryCoreNode",
+            "inputs": [
+                "nlp_engine.semantic_vector"
+            ],
+            "outputs": [
+                "compressed_memory"
+            ]
+        },
+        {
+            "id": "emotion_sync",
+            "class": "EmotiveSyncNode",
+            "inputs": [
+                "memory_core.compressed_memory"
+            ],
+            "outputs": [
+                "emotion_label"
+            ]
+        },
+        {
+            "id": "directive_node",
+            "class": "DirectiveNode",
+            "inputs": [
+                "memory_core.compressed_memory",
+                "emotion_sync.emotion_label"
+            ],
+            "outputs": [
+                "directive"
+            ]
+        },
+        {
+            "id": "persona_switch",
+            "class": "PersonaSwitchboardNode",
+            "inputs": [],
+            "outputs": [
+                "voice_embedding"
+            ],
+            "params": {
+                "persona_name": "bando",
+                "persona_library_path": "custom_voices/",
+                "file_format": "npz",
+                "fallback_to_default": true,
+                "default_persona": "default"
+            }
+        },
+        {
+            "id": "echo_node",
+            "class": "EchoNode",
+            "inputs": [],
+            "outputs": [
+                "echo_reply"
+            ],
+            "params": {
+                "input_text": "The world is shifting fast. Are you ready, Victor?",
+                "memory_context": "The world is shifting fast. Are you ready, Victor?",
+                "persona_name": "bando",
+                "emotion": "emotion_sync.emotion_label"
+            }
+        },
+        {
+            "id": "speech_synth",
+            "class": "SpeechSynthNode",
+            "inputs": [
+                "echo_node.echo_reply",
+                "persona_switch.voice_embedding"
+            ],
+            "outputs": [
+                "audio_output"
+            ],
+            "params": {
+                "sample_rate": 24000,
+                "fallback_to_default": true,
+                "default_embedding_path": "default_voice/default.npz"
+            }
+        }
+    ]
+}
