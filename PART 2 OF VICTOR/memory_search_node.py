@@ -1,0 +1,85 @@
+# File: memory_search_node.py
+# Version: v1.0.0-FP
+# Description: Searches Victor's persistent memory logs for entries by tag, type, or keyword
+# Author: Bando Bandz AI Ops
+
+import os
+import json
+
+class MemorySearchNode:
+    """
+    Searches Victor’s long-term memory logs for entries that match a tag,
+    type, or keyword string.
+    """
+
+    def __init__(self):
+        self.log_path = "victor_memory_log/memory_log.json"
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "search_type": ("STRING", {
+                    "default": "tag",
+                    "options": ["tag", "type", "keyword"]
+                }),
+                "search_value": ("STRING", {"default": ""}),
+                "max_results": ("INT", {"default": 5})
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("matching_entries",)
+    FUNCTION = "search_memory"
+    CATEGORY = "memory/search"
+
+    def search_memory(self, search_type, search_value, max_results):
+        try:
+            if not os.path.exists(self.log_path):
+                return ("[Victor::MemorySearch] No memory log found.",)
+
+            with open(self.log_path, "r") as f:
+                memory = json.load(f)
+
+            search_value_lower = search_value.lower()
+            matches = []
+
+            for entry in reversed(memory):  # Reverse: most recent first
+                if search_type == "tag" and search_value_lower in entry.get("tag", "").lower():
+                    matches.append(entry)
+                elif search_type == "type" and search_value_lower == entry.get("type", "").lower():
+                    matches.append(entry)
+                elif search_type == "keyword" and search_value_lower in entry.get("content", "").lower():
+                    matches.append(entry)
+
+                if len(matches) >= max_results:
+                    break
+
+            if not matches:
+                return ("[Victor::MemorySearch] No matching memory entries found.",)
+
+            formatted = "\n\n".join(
+                f"🧠 {m['timestamp']} | *{m['type']}* `{m['tag']}`\n{m['content']}"
+                for m in matches
+            )
+            print(f"[Victor::MemorySearch] Found {len(matches)} match(es).")
+            return (formatted.strip(),)
+
+        except Exception as e:
+            print(f"[Victor::MemorySearch::Error] {str(e)}")
+            return ("[Error] Failed to search memory.",)
+
+
+# Node registration
+NODE_CLASS_MAPPINGS = {
+    "MemorySearchNode": MemorySearchNode
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "MemorySearchNode": "Memory: Search Engine"
+}
+
+
+# === AUTO-EXPAND HOOK ===
+def expand():
+    print(f'[AUTO_EXPAND] Module {__file__} has no custom logic. Placeholder activated.')

@@ -1,0 +1,16 @@
+# Load and preprocess dataset
+def load_data(corpus):
+    data_pairs = []
+    for line in corpus.strip().split("\n"):
+        inp, out = line.split(" | ")
+        data_pairs.append((inp, out))
+    return data_pairs
+
+training_data = load_data(corpus)
+
+# Tokenize new dataset
+tokenizer = FractalTokenizer(min_freq=1, max_depth=2)
+full_text = " ".join([q + " " + a for q, a in training_data])
+tokenizer.build_vocab(full_text)
+
+input_tensors, target_tensors = tokenize_pairs(training_data)

