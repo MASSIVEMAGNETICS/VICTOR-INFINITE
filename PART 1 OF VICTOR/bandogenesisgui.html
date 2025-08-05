@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BANDO GENESIS :: AEON (v2.0)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0A0A0A; /* Darker base */
+            color: #EAEAEA;
+        }
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1C1C1C; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #4A4A4A; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6A6A6A; }
+
+        .bg-panel { background-color: #121212; }
+        .bg-sidebar { background-color: #000000; } /* Deep black for sidebar */
+        .bg-element { background-color: #1D1D1D; } /* Slightly lighter elements */
+        .border-element { border-color: #2D2D2D; }
+        .text-muted { color: #888888; }
+        .text-accent { color: #00AEEF; } /* Changed accent to a vibrant blue */
+        .text-accent-secondary { color: #AF52DE; } /* Purple for secondary accents */
+
+        .btn {
+            padding: 0.6rem 1.2rem;
+            border-radius: 0.375rem;
+            font-weight: 600; /* Bolder buttons */
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .btn-primary {
+            background-color: #00AEEF;
+            color: white;
+            box-shadow: 0 2px 10px rgba(0, 174, 239, 0.3);
+        }
+        .btn-primary:hover {
+            background-color: #00CFFF;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 174, 239, 0.4);
+        }
+        .btn-secondary {
+            background-color: #282828;
+            color: #E0E0E0;
+            border: 1px solid #383838;
+        }
+        .btn-secondary:hover {
+            background-color: #383838;
+            border-color: #484848;
+        }
+        .btn-active {
+            background-color: #00AEEF; /* Active tab is primary accent */
+            color: white !important; /* Ensure text is white */
+            border-color: #00AEEF;
+        }
+        .input-field, .textarea-field { /* Combined for consistency */
+            background-color: #1A1A1A;
+            border: 1px solid #2D2D2D;
+            color: #E0E0E0;
+            padding: 0.75rem 1rem; /* Increased padding */
+            border-radius: 0.375rem;
+            width: 100%;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .input-field:focus, .textarea-field:focus {
+            outline: none;
+            border-color: #00AEEF;
+            box-shadow: 0 0 0 3px rgba(0, 174, 239, 0.4);
+        }
+        .textarea-field { resize: vertical; min-height: 80px; }
+
+        .tag-button {
+            background-color: #282828;
+            color: #B0B0B0;
+            padding: 0.35rem 0.85rem;
+            border-radius: 9999px;
+            font-size: 0.8rem; /* Smaller tags */
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+            border: 1px solid transparent;
+        }
+        .tag-button:hover, .tag-button.active {
+            background-color: #00AEEF;
+            color: white;
+            border-color: #00AEEF;
+        }
+        .tab-inactive {
+             background-color: #1D1D1D; color: #888888; border: 1px solid #2D2D2D;
+        }
+        .tab-inactive:hover {
+            background-color: #282828; color: #E0E0E0;
+        }
+
+        /* Glassmorphism effect for some panels */
+        .glass-panel {
+            background: rgba(24, 24, 24, 0.6); /* Semi-transparent background */
+            backdrop-filter: blur(10px); /* Blur effect */
+            -webkit-backdrop-filter: blur(10px); /* Safari support */
+            border: 1px solid rgba(45, 45, 45, 0.3); /* Subtle border */
+        }
+
+        /* AI Feedback / Status */
+        .ai-status-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        .ai-status-dot.processing { background-color: #FFA500; /* Orange */ }
+        .ai-status-dot.ready { background-color: #00AEEF; /* Blue */ }
+        .ai-status-dot.error { background-color: #FF4136; /* Red */ }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.9); }
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <aside class="bg-sidebar w-72 flex-shrink-0 p-5 space-y-6 overflow-y-auto shadow-2xl">
+        <div class="text-3xl font-bold text-accent tracking-wider font-orbitron">BÆNDO GENESIS</div>
+        <div class="user-profile text-sm border-b border-element pb-4">
+            <div class="flex items-center space-x-3">
+                <img src="https://via.placeholder.com/40/000000/FFFFFF?text=B" alt="User Avatar" class="rounded-full">
+                <div>
+                    <div class="font-semibold text-base">BandoBandz</div>
+                    <div class="text-muted text-xs">Quantum Tier User</div>
+                </div>
+            </div>
+            <div class="mt-3 text-xs flex justify-between">
+                <span>AI Credits: <span class="text-accent-secondary font-semibold">∞ UNLIMITED</span></span>
+                <div id="ai-backend-status" class="flex items-center space-x-1.5">
+                    <span class="text-muted">AEON AI:</span>
+                    <div class="ai-status-dot ready" title="AEON AI Ready"></div>
+                </div>
+            </div>
+        </div>
+        <nav class="space-y-1.5">
+            <a href="#" class="flex items-center space-x-3 px-3 py-2.5 rounded-md hover:bg-element text-white bg-element transition-all duration-200">
+                <i class="fas fa-atom w-5 h-5"></i><span>Genesis Hub</span>
+            </a>
+            <a href="#" class="flex items-center space-x-3 px-3 py-2.5 rounded-md hover:bg-element text-muted transition-all duration-200">
+                <i class="fas fa-wand-magic-sparkles w-5 h-5"></i><span>Create New</span>
+            </a>
+            <a href="#" class="flex items-center space-x-3 px-3 py-2.5 rounded-md hover:bg-element text-muted transition-all duration-200">
+                <i class="fas fa-swatchbook w-5 h-5"></i><span>My Timelines</span> <span class="text-xs bg-accent-secondary text-white px-1.5 py-0.5 rounded-full ml-auto">7</span>
+            </a>
+            <a href="#" class="flex items-center space-x-3 px-3 py-2.5 rounded-md hover:bg-element text-muted transition-all duration-200">
+                <i class="fas fa-microchip w-5 h-5"></i><span>AI Model Forge</span>
+            </a>
+            <a href="#" class="flex items-center space-x-3 px-3 py-2.5 rounded-md hover:bg-element text-muted transition-all duration-200">
+                <i class="fas fa-compass w-5 h-5"></i><span>Explore Universes</span>
+            </a>
+            <a href="#" class="flex items-center justify-between px-3 py-2.5 rounded-md hover:bg-element text-muted transition-all duration-200">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-bell w-5 h-5"></i><span>Alerts & Insights</span>
+                </div>
+                <span class="bg-red-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">12</span>
+            </a>
+        </nav>
+        <div class="pt-6 mt-auto space-y-4">
+             <div class="p-3 bg-element rounded-lg glass-panel">
+                <h4 class="text-sm font-semibold mb-2">AI Co-Pilot: <span id="copilot-status" class="text-accent">Active</span></h4>
+                <p id="copilot-suggestion" class="text-xs text-muted italic">"Try blending 'Cosmic Jazz' with 'Glitch Hop' for your next track!"</p>
+            </div>
+            <div class="sidebar-footer space-y-1 text-xs">
+                <a href="#" class="block text-muted hover:text-white">Quantum Link (Invite)</a>
+                <a href="#" class="block text-muted hover:text-white">Help & Holo-Docs</a>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex overflow-hidden">
+        <section class="flex-1 bg-panel p-6 md:p-8 flex flex-col overflow-y-auto">
+
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-semibold text-gray-200">Create Track / <span class="text-accent" id="current-project-title">Untitled Aetherial Mix</span></h1>
+                 <div class="flex space-x-2">
+                    <button class="btn btn-secondary text-sm"><i class="fas fa-save mr-1"></i> Save Draft</button>
+                    <button class="btn btn-secondary text-sm"><i class="fas fa-history mr-1"></i> Version History</button>
+                </div>
+            </div>
+
+            <div class="tabs flex space-x-1 mb-6 border-b border-element">
+                <button id="tab-quick-genesis" class="btn tab-inactive px-5 py-2.5 text-sm rounded-b-none">Quick Genesis</button>
+                <button id="tab-deep-dive" class="btn tab-active px-5 py-2.5 text-sm rounded-b-none">Deep Dive</button>
+                <button id="tab-fractal-weaver" class="btn tab-inactive px-5 py-2.5 text-sm rounded-b-none">Fractal Weaver</button>
+                 <button id="tab-stem-mixer" class="btn tab-inactive px-5 py-2.5 text-sm rounded-b-none">Stem Mixer & FX</button>
+            </div>
+
+            <div id="section-quick-genesis" class="tab-content" style="display:none;">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="lyrics-section glass-panel p-5 rounded-lg">
+                        <h3 class="text-lg font-semibold mb-3">1. Lyrical Seed</h3>
+                        <textarea class="textarea-field h-28" placeholder="A few lines, a core idea, or a theme... e.g., 'Lost echoes in a neon rain'"></textarea>
+                    </div>
+                    <div class="style-section glass-panel p-5 rounded-lg">
+                        <h3 class="text-lg font-semibold mb-3">2. Sonic DNA</h3>
+                        <textarea id="quick-style-input" class="textarea-field h-28" placeholder="Describe the vibe, genre, instruments... e.g., 'Chill lofi hip hop, rainy day, soft piano, female vocal whisper'"></textarea>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <button class="tag-button" onclick="addTagToInput('quick-style-input', 'lofi hip hop')">lofi hip hop</button>
+                            <button class="tag-button" onclick="addTagToInput('quick-style-input', 'synthwave')">synthwave</button>
+                            <button class="tag-button" onclick="addTagToInput('quick-style-input', 'epic orchestral')">epic orchestral</button>
+                            <button class="tag-button" onclick="addTagToInput('quick-style-input', 'acoustic folk')">acoustic folk</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6 glass-panel p-5 rounded-lg">
+                     <h3 class="text-lg font-semibold mb-3">3. AI Persona & Mood</h3>
+                     <div class="flex space-x-4">
+                        <select class="input-field text-sm flex-1">
+                            <option>Muse: Serene Oracle (Default)</option>
+                            <option>Muse: Glitch Storm</option>
+                            <option>Muse: Velvet Shadow</option>
+                        </select>
+                        <input type="range" min="0" max="100" value="50" class="flex-1 accent-accent"> </div>
+                </div>
+                <div class="mt-8 pt-6 border-t border-element">
+                    <button class="btn btn-primary w-full py-3 text-lg font-semibold"><i class="fas fa-bolt mr-2"></i> Generate Initial Composition (Quick)</button>
+                </div>
+            </div>
+
+            <div id="section-deep-dive" class="tab-content">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="space-y-6 lg:col-span-1">
+                        <div class="lyrics-module glass-panel p-5 rounded-lg">
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-lg font-semibold">Lyrical Core</h3>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-xs text-muted">AI Assist:</span> <input type="checkbox" class="form-checkbox bg-element border-element text-accent focus:ring-accent" checked>
+                                </div>
+                            </div>
+                            <textarea id="deep-lyrics-input" class="textarea-field h-40" placeholder="Craft your lyrics or let the AI co-write..."></textarea>
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                <button class="btn btn-secondary text-xs"><i class="fas fa-magic mr-1"></i> Suggest Rhymes</button>
+                                <button class="btn btn-secondary text-xs"><i class="fas fa-lightbulb mr-1"></i> Thematic Expansion</button>
+                                <label class="flex items-center space-x-2 text-xs text-muted cursor-pointer p-2 rounded hover:bg-element">
+                                    <input type="checkbox" id="instrumental-checkbox" class="form-checkbox bg-element border-element text-accent focus:ring-accent">
+                                    <span>Instrumental</span>
+                                </label>
+                            </div>
+                        </div>
+                         <div class="vocal-module glass-panel p-5 rounded-lg">
+                            <h3 class="text-lg font-semibold mb-3">Vocal Persona & Style</h3>
+                            <select id="vocal-persona-select" class="input-field mb-3 text-sm">
+                                <option>Nova (Female, Ethereal Pop)</option>
+                                <option>Jax (Male, Gritty Rock)</option>
+                                <option>Echo (Androgynous, Ambient)</option>
+                                <option>Custom Voiceprint...</option>
+                            </select>
+                            <label class="text-xs text-muted block mb-1">Emotional Intensity (Vocal)</label>
+                            <input type="range" min="0" max="100" value="60" class="w-full accent-accent-secondary">
+                        </div>
+                    </div>
+
+                    <div class="space-y-6 lg:col-span-1">
+                        <div class="style-dna-module glass-panel p-5 rounded-lg">
+                            <h3 class="text-lg font-semibold mb-3">Musical DNA & Genre Matrix</h3>
+                            <textarea id="deep-style-input" class="textarea-field h-32" placeholder="Describe genre, mood, key, tempo, instrumentation... e.g., 'Dark synthpop in D minor, 120 BPM, heavy Juno pads, driving LinnDrum, male baritone vocal'"></textarea>
+                            <div class="mt-3 text-xs text-muted">AI will parse and apply. Use tags for emphasis:</div>
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                <button class="tag-button" onclick="addTagToInput('deep-style-input', 'Minor Key')">Minor Key</button>
+                                <button class="tag-button" onclick="addTagToInput('deep-style-input', 'Uptempo')">Uptempo</button>
+                                <button class="tag-button" onclick="addTagToInput('deep-style-input', 'Analog Synths')">Analog Synths</button>
+                                <button class="tag-button" onclick="addTagToInput('deep-style-input', 'Reverb Heavy')">Reverb Heavy</button>
+                            </div>
+                        </div>
+                        <div class="structure-module glass-panel p-5 rounded-lg">
+                            <h3 class="text-lg font-semibold mb-3">Song Structure Blueprint</h3>
+                            <div id="song-structure-editor" class="space-y-2 text-sm">
+                                <div class="p-2 bg-element rounded border border-element">Intro (8 bars) - Chill, atmospheric</div>
+                                <div class="p-2 bg-element rounded border border-element">Verse 1 (16 bars) - Vocals enter, sparse beat</div>
+                                <div class="p-2 bg-element rounded border border-element">Chorus (8 bars) - Full energy, layered synths</div>
+                            </div>
+                            <button class="btn btn-secondary text-xs mt-3"><i class="fas fa-plus-circle mr-1"></i> Add Section</button>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-6 lg:col-span-1">
+                        <div class="audio-ref-module glass-panel p-5 rounded-lg">
+                            <h3 class="text-lg font-semibold mb-3">Reference Audio (Optional)</h3>
+                            <input type="file" id="audio-upload-input" class="hidden">
+                            <button onclick="document.getElementById('audio-upload-input').click()" class="btn btn-secondary w-full text-sm"><i class="fas fa-upload mr-2"></i> Upload Reference Track/Stem</button>
+                            <p class="text-xs text-muted mt-2">AI can analyze style, tempo, or key, or use it as a sonic texture.</p>
+                        </div>
+                        <div class="parameter-tuning-module glass-panel p-5 rounded-lg">
+                             <h3 class="text-lg font-semibold mb-3">Fine-Tune Parameters</h3>
+                             <div class="space-y-3 text-sm">
+                                <div>
+                                    <label class="text-xs text-muted">Novelty vs. Coherence:</label>
+                                    <input type="range" min="0" max="100" value="50" class="w-full accent-accent">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-muted">Fractal Detail Level:</label>
+                                    <input type="range" min="0" max="100" value="65" class="w-full accent-accent">
+                                </div>
+                             </div>
+                        </div>
+                    </div>
+                </div>
+                 <div class="mt-8 pt-6 border-t border-element">
+                    <button class="btn btn-primary w-full py-3 text-lg font-semibold"><i class="fas fa-cogs mr-2"></i> Synthesize Composition (Deep Dive)</button>
+                </div>
+            </div>
+
+            <div id="section-fractal-weaver" class="tab-content" style="display:none;">
+                <h2 class="text-2xl font-semibold mb-4">Fractal Weaver <span class="text-xs text-accent-secondary">(Node-Based AI Chaining)</span></h2>
+                <div class="w-full h-96 bg-element border border-element rounded-lg flex items-center justify-center text-muted italic">
+                    (Interactive Node Canvas for AI Module Chaining - e.g., Lyric Node -> Melody Node (params) -> Harmony Node -> Timbre Node -> Arrangement Node. Each node exposes fractal parameters, AI model choices, etc. This would be a complex JS component like React Flow or Svelte Flow.)
+                </div>
+                 <p class="text-sm text-muted mt-4">Drag & drop AI modules. Connect their outputs to inputs. Tune fractal seeds, recursion depth, and evolutionary parameters for each node. Define global emotional trajectories that influence all chained modules.</p>
+                <div class="mt-8 pt-6 border-t border-element">
+                    <button class="btn btn-primary w-full py-3 text-lg font-semibold"><i class="fas fa-infinity mr-2"></i> Weave & Render Fractal Music</button>
+                </div>
+            </div>
+
+            <div id="section-stem-mixer" class="tab-content" style="display:none;">
+                 <h2 class="text-2xl font-semibold mb-4">Stem Mixer & Quantum FX</h2>
+                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                    <div class="stem-channel glass-panel p-3 rounded">
+                        <h4 class="font-semibold mb-1">Vocals (Nova)</h4>
+                        <input type="range" title="Volume" value="80" class="w-full accent-accent mb-1">
+                        <input type="range" title="Pan" value="50" class="w-full accent-accent-secondary mb-2">
+                        <p class="text-xs text-muted">FX: Aetherial Reverb, Crystal Delay</p>
+                    </div>
+                    <div class="stem-channel glass-panel p-3 rounded">
+                        <h4 class="font-semibold mb-1">Lead Synth (Juno Dreams)</h4>
+                        <input type="range" title="Volume" value="70" class="w-full accent-accent mb-1">
+                        <input type="range" title="Pan" value="30" class="w-full accent-accent-secondary mb-2">
+                         <p class="text-xs text-muted">FX: Fractal Chorus, Sidechain Comp</p>
+                    </div>
+                    <div class="stem-channel glass-panel p-3 rounded">
+                        <h4 class="font-semibold mb-1">Drums (Rhythm Core 808)</h4>
+                        <input type="range" title="Volume" value="85" class="w-full accent-accent mb-1">
+                        <input type="range" title="Pan" value="50" class="w-full accent-accent-secondary mb-2">
+                         <p class="text-xs text-muted">FX: Parallel Compression, Gated Verb</p>
+                    </div>
+                     <div class="stem-channel glass-panel p-3 rounded">
+                        <h4 class="font-semibold mb-1">Bass (Sub Terra)</h4>
+                        <input type="range" title="Volume" value="90" class="w-full accent-accent mb-1">
+                        <input type="range" title="Pan" value="50" class="w-full accent-accent-secondary mb-2">
+                         <p class="text-xs text-muted">FX: Saturation, Bass Enhancer</p>
+                    </div>
+                 </div>
+                 <div class="mt-8 pt-6 border-t border-element">
+                    <button class="btn btn-primary w-full py-3 text-lg font-semibold"><i class="fas fa-sliders-h mr-2"></i> Render Final Mixdown</button>
+                </div>
+            </div>
+
+
+        </section>
+
+        <aside class="w-96 bg-sidebar flex-shrink-0 p-4 flex flex_col overflow-y-auto border-l border-element shadow-xl">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold">Sonic Blueprints</h2>
+                <button class="btn btn-secondary text-xs"><i class="fas fa-plus mr-1"></i> New Project</button>
+            </div>
+            <div class="flex space-x-2 mb-4">
+                <input type="search" placeholder="Search blueprints..." class="input-field text-sm flex-1">
+            </div>
+            <div class="space-y-3 flex-1 overflow-y-auto pr-1">
+                <div class="track-item glass-panel p-3 rounded-md cursor-pointer hover:border-accent transition-all duration-200 border border-transparent">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="font-semibold text-sm">Aether Dreams <span class="text-xs text-accent-secondary ml-1">v3</span></h4>
+                            <p class="text-xs text-muted">Ambient Chillwave</p>
+                        </div>
+                        <span class="text-xs text-muted">4:12</span>
+                    </div>
+                    <p class="text-xs text-muted mt-1 mb-2 truncate">Keywords: serene, floating, ethereal vocals, slow tempo, Juno pads.</p>
+                    <div class="flex items-center justify-between text-xs">
+                        <div class="flex space-x-1.5">
+                             <button class="btn btn-secondary text-xs px-2 py-1"><i class="fas fa-play text-accent"></i></button>
+                             <button class="btn btn-secondary text-xs px-2 py-1"><i class="fas fa-pencil-alt"></i> Edit</button>
+                             <button class="btn btn-secondary text-xs px-2 py-1"><i class="fas fa-code-branch"></i> Fork</button>
+                        </div>
+                        <span class="text-muted">May 15, 2027</span>
+                    </div>
+                </div>
+                <div class="track-item glass-panel p-3 rounded-md cursor-pointer hover:border-accent transition-all duration-200 border border-transparent opacity-70">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="font-semibold text-sm">Neon Gridrunner</h4>
+                            <p class="text-xs text-muted">Synthwave Retro</p>
+                        </div>
+                        <span class="text-xs text-muted">3:30</span>
+                    </div>
+                     <p class="text-xs text-muted mt-1 mb-2 truncate">Keywords: 80s, driving beat, arpeggiated bass, cinematic.</p>
+                     <div class="flex items-center justify-between text-xs">
+                         <div class="flex space-x-1.5">
+                             <button class="btn btn-secondary text-xs px-2 py-1"><i class="fas fa-play"></i></button>
+                             <button class="btn btn-secondary text-xs px_2 py-1"><i class="fas fa-pencil-alt"></i> Edit</button>
+                             <button class="btn btn-secondary text-xs px-2 py-1"><i class="fas fa-code-branch"></i> Fork</button>
+                        </div>
+                        <span class="text-muted">May 10, 2027</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 h-24 bg-element border-t border-element flex items-center justify-between px-6 z-20 shadow-2xl">
+        <div class="flex items-center space-x-3">
+            <div class="w-14 h-14 bg-gray-700 rounded-md animate-pulse"></div> <div>
+                <div class="text-sm font-semibold" id="player-track-title">Aether Dreams v3</div>
+                <div class="text-xs text-muted" id="player-track-artist">Bando Genesis AI</div>
+            </div>
+            <button class="text-muted hover:text-white ml-2"><i class="fas fa-heart"></i></button>
+        </div>
+        <div class="flex flex-col items-center flex-grow mx-4">
+            <div class="flex items-center space-x-4 mb-1.5">
+                <button class="text-muted hover:text-white"><i class="fas fa-random"></i></button>
+                <button class="text-muted hover:text-white"><i class="fas fa-step-backward"></i></button>
+                <button class="text-white bg-accent p-3 rounded-full hover:bg-blue-400 transform hover:scale-110 transition-all duration-150">
+                    <i class="fas fa-play w-5 h-5"></i> </button>
+                <button class="text-muted hover:text-white"><i class="fas fa-step-forward"></i></button>
+                <button class="text-muted hover:text-white"><i class="fas fa-redo"></i></button>
+            </div>
+            <div class="w-full max-w-xl h-1.5 bg-gray-600 rounded-full flex items-center group cursor-pointer">
+                <div class="h-1.5 bg-accent rounded-full group-hover:bg-blue-400" style="width: 30%;"></div>
+                <span class="text-xs text-muted ml-3 absolute right-0 -bottom-4 opacity-0 group-hover:opacity-100 transition-opacity">1:28 / 4:12</span>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button class="text-muted hover:text-white" title="Show Lyrics"><i class="fas fa-align-left"></i></button>
+            <button class="text-muted hover:text-white" title="Evolve Track"><i class="fas fa-dna"></i></button>
+            <button class="text-muted hover:text-white"><i class="fas fa-volume-up"></i></button>
+            <div class="w-24 h-1 bg-gray-600 rounded-full">
+                <div class="h-1 bg-white rounded-full" style="width: 60%;"></div>
+            </div>
+            <button class="text-muted hover:text-white" title="Export Options"><i class="fas fa-share-square"></i></button>
+        </div>
+    </footer>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const tabs = [
+            { btnId: 'tab-quick-genesis', sectionId: 'section-quick-genesis' },
+            { btnId: 'tab-deep-dive', sectionId: 'section-deep-dive' },
+            { btnId: 'tab-fractal-weaver', sectionId: 'section-fractal-weaver' },
+            { btnId: 'tab-stem-mixer', sectionId: 'section-stem-mixer' }
+        ];
+        const defaultTab = 'tab-deep-dive'; // Set default active tab
+
+        function activateTab(activeBtnId) {
+            tabs.forEach(tab => {
+                const btn = document.getElementById(tab.btnId);
+                const section = document.getElementById(tab.sectionId);
+                if (tab.btnId === activeBtnId) {
+                    btn.classList.add('btn-active');
+                    btn.classList.remove('tab-inactive');
+                    section.style.display = 'block';
+                } else {
+                    btn.classList.remove('btn-active');
+                    btn.classList.add('tab-inactive');
+                    section.style.display = 'none';
+                }
+            });
+        }
+
+        tabs.forEach(tab => {
+            const btn = document.getElementById(tab.btnId);
+            if (btn) {
+                btn.addEventListener('click', () => activateTab(tab.btnId));
+            }
+        });
+        
+        activateTab(defaultTab); // Activate default tab
+
+        // Helper for tag buttons
+        window.addTagToInput = function(inputId, tagText) {
+            const inputElement = document.getElementById(inputId);
+            if (inputElement) {
+                inputElement.value += (inputElement.value ? ', ' : '') + tagText;
+            }
+        }
+
+        // Instrumental checkbox logic (Deep Dive tab)
+        const instrumentalCheckbox = document.getElementById('instrumental-checkbox');
+        const lyricsInput = document.getElementById('deep-lyrics-input');
+        const vocalPersonaSelect = document.getElementById('vocal-persona-select');
+        if (instrumentalCheckbox && lyricsInput && vocalPersonaSelect) {
+            instrumentalCheckbox.addEventListener('change', function() {
+                const isInstrumental = this.checked;
+                lyricsInput.disabled = isInstrumental;
+                vocalPersonaSelect.disabled = isInstrumental;
+                if (isInstrumental) {
+                    lyricsInput.value = '';
+                    lyricsInput.placeholder = 'Instrumental track - no lyrics needed.';
+                } else {
+                    lyricsInput.placeholder = 'Craft your lyrics or let the AI co-write...';
+                }
+            });
+        }
+    });
+    </script>
+</body>
+</html>
