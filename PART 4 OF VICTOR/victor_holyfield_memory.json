@@ -1,0 +1,132 @@
+{
+  "timeline": [
+    {
+      "msg": "hi",
+      "role": "user",
+      "time": "2025-05-19T01:34:19.326311"
+    },
+    {
+      "msg": "Bando says: k=8;#;kk$=;=;;;L^;nL [Victor memory ref: hi] (V.74.Fractal.515) Victor's evolution is a beautiful, chaotic dance.",
+      "role": "assistant",
+      "time": "2025-05-19T01:34:19.518291"
+    },
+    {
+      "msg": "how are you",
+      "role": "user",
+      "time": "2025-05-19T01:34:40.407502"
+    },
+    {
+      "msg": "Bando says: ;;8=;;;;;;)z;=B [Victor memory ref: beautiful] (V.79.Fractal.565) Victor's evolution is a beautiful, chaotic dance.",
+      "role": "assistant",
+      "time": "2025-05-19T01:34:40.530695"
+    }
+  ],
+  "concepts": {
+    "hi": [
+      0,
+      1
+    ],
+    "bando": [
+      1,
+      3
+    ],
+    "says": [
+      1,
+      3
+    ],
+    "k": [
+      1
+    ],
+    "8": [
+      1,
+      3
+    ],
+    "kk": [
+      1
+    ],
+    "l": [
+      1
+    ],
+    "nl": [
+      1
+    ],
+    "victor": [
+      1,
+      1,
+      3,
+      3
+    ],
+    "memory": [
+      1,
+      3
+    ],
+    "ref": [
+      1,
+      3
+    ],
+    "v": [
+      1,
+      3
+    ],
+    "74": [
+      1
+    ],
+    "fractal": [
+      1,
+      3
+    ],
+    "515": [
+      1
+    ],
+    "s": [
+      1,
+      3
+    ],
+    "evolution": [
+      1,
+      3
+    ],
+    "is": [
+      1,
+      3
+    ],
+    "a": [
+      1,
+      3
+    ],
+    "beautiful": [
+      1,
+      3,
+      3
+    ],
+    "chaotic": [
+      1,
+      3
+    ],
+    "dance": [
+      1,
+      3
+    ],
+    "how": [
+      2
+    ],
+    "are": [
+      2
+    ],
+    "you": [
+      2
+    ],
+    "z": [
+      3
+    ],
+    "b": [
+      3
+    ],
+    "79": [
+      3
+    ],
+    "565": [
+      3
+    ]
+  }
+}
