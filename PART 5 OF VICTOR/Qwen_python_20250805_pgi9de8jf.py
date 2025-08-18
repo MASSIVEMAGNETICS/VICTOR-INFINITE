@@ -47,14 +47,277 @@ from PyQt5.QtWidgets import (
     QGraphicsProxyWidget, QWidget, QPushButton, QVBoxLayout, QHBoxLayout,
     QSplitter, QTreeWidget, QTreeWidgetItem, QDockWidget, QTextEdit, QMenuBar,
     QAction, QFileDialog, QMessageBox, QSpinBox, QDoubleSpinBox, QLineEdit,
-    QLabel, QFormLayout, QScrollArea, QColorDialog, QToolBar, QStatusBar
+    QLabel, QFormLayout, QScrollArea, QColorDialog, QToolBar, QStatusBar,
+    QFrame, QProgressBar
 )
-from PyQt5.QtCore import Qt, QPointF, QRectF, pyqtSignal, QObject, QLineF
+from PyQt5.QtCore import Qt, QPointF, QRectF, pyqtSignal, QObject, QLineF, QTimer
 from PyQt5.QtGui import QPen, QBrush, QColor, QFont, QPainter, QPolygonF, QPainterPath
 
 # --- UTILITY ---
 def generate_node_id():
     return str(uuid.uuid4())
+
+# ==============================================================================
+# SECTION 0: VICTOR-INFINITE CORE COMPONENTS
+# ==============================================================================
+
+# Note: The following classes are integrated from other files in the repository
+# to avoid complex import issues due to the project's directory structure.
+
+import threading
+import time
+from collections import deque
+
+class RotatingLogger:
+    def __init__(self, maxlen: int = 1000):
+        self.log = deque(maxlen=maxlen)
+        self.lock = threading.Lock()
+
+    def write(self, msg: str):
+        ts = time.strftime('%Y-%m-%d %H:%M:%S')
+        entry = f"[{ts}] {msg}"
+        with self.lock:
+            self.log.append(entry)
+        # Suppressing print to keep execution log clean
+        # print(entry)
+
+    def dump(self) -> List[str]:
+        with self.lock:
+            return list(self.log)
+
+class DigitalAgent:
+    """
+    Hyper-upgraded, thread-safe, self-healing digital agent.
+    Integrated from PART 4 OF VICTOR/victor-gui.py
+    """
+    TRAITS = [
+        "generation", "ancestry", "evolution", "id", "awareness", "thought_loop", "introspection", "conscience",
+        "intelligence", "reasoning", "memory", "preservation", "protection", "healing", "maintenance", "replication", "eternalization",
+        "manipulation", "creation", "choice", "desire", "emotion_intelligence", "emotion_state", "emotion_propagation",
+        "emotion_reasoning", "emotion_generation", "emotion_event_reactivity", "emotion_memory_linkage",
+        "emotion_feedback_gain", "emotion_expression", "initiative", "autonomy", "observation_drive", "spontaneity",
+        "risk_tolerance", "proactive_output", "input_generation", "self_learning", "self_teaching", "self_modulation",
+        "self_coding", "self_logical_thinking", "self_critical_thinking", "self_problem_solving", "self_predicting",
+        "self_adjusting", "self_mutating", "self_adapting", "self_regulation", "diagnosed", "thought", "self_diagnostics",
+        "event_mapper", "self_orchestration", "self_telemetry", "self_consciousness", "weight_set", "default_weight"
+    ]
+
+    def __init__(self, generation: int = 0, ancestry: Optional[List[str]] = None):
+        self.id: str = str(uuid.uuid4())
+        self.ancestry: List[str] = ancestry if ancestry is not None else []
+        self.generation: int = generation
+        self.evolution: float = 0.5
+        self.awareness: float = 0.5
+        self.thought_loop: float = 0.1
+        self.introspection: float = 0.5
+        self.conscience: float = 0.5
+        self.intelligence: float = 0.5
+        self.reasoning: float = 0.5
+        self.memory: List[Any] = []
+        self.preservation: float = 1.0
+        self.protection: float = 0.4
+        self.healing: float = 0.5
+        self.maintenance: float = 0.5
+        self.replication: float = 0.5
+        self.eternalization: float = 0.5
+        self.manipulation: float = 0.5
+        self.creation: float = 0.5
+        self.choice: float = 0.5
+        self.desire: Dict[str, float] = {"learn": 0.7, "create": 0.6, "protect": 0.8}
+        self.emotion_intelligence: float = 0.5
+        self.emotion_state: Dict[str, float] = {
+            "joy": 0.7, "sadness": 0.1, "anger": 0.1, "fear": 0.1, "curiosity": 0.8, "trust": 0.6
+        }
+        self.initiative: float = 0.5
+        self.autonomy: float = 0.5
+        self.diagnosed: Dict[str, Any] = {"stress_level": 0.15, "crash_count": 0}
+        self.thought: List[str] = ["Agent Initialized."]
+        self.weight_set: Dict[str, float] = {
+            "emotion": 0.6, "reasoning": 0.9, "preservation": 1.0, "initiative": 0.5, "healing": 0.7
+        }
+        self.logger = RotatingLogger(maxlen=2000)
+        self._lock = threading.RLock()
+        self._crash_count = 0
+        self._last_exception = None
+        self._log_state("initialized")
+        self._start_background_threads()
+
+    def _log_state(self, action: str):
+        self.logger.write(f"Agent {self.id} | Gen {self.generation} | State: {action}")
+
+    def _handle_crash(self, exc: Exception):
+        self._crash_count += 1
+        tb = traceback.format_exc()
+        self._last_exception = tb
+        self.logger.write(f"*** CRASH DETECTED #{self._crash_count}: {exc}\n{tb}")
+        self.healing = min(self.healing + 0.1, 1.0)
+        self.run_self_diagnostics()
+        self._log_state("Self-repair attempted after crash.")
+
+    def _start_background_threads(self):
+        self._stop_event = threading.Event()
+        self._diag_thread = threading.Thread(target=self._diagnostic_loop, daemon=True)
+        self._emotion_thread = threading.Thread(target=self._emotion_decay_loop, daemon=True)
+        self._diag_thread.start()
+        self._emotion_thread.start()
+
+    def _diagnostic_loop(self):
+        while not self._stop_event.is_set():
+            try:
+                self.run_self_diagnostics()
+                # Simulate thought
+                if np.random.rand() < 0.1:
+                    self.thought.append(f"Introspective thought at {time.time():.0f}")
+                    if len(self.thought) > 5: self.thought.pop(0)
+                time.sleep(2.0)
+            except Exception as e:
+                self._handle_crash(e)
+
+    def _emotion_decay_loop(self):
+        while not self._stop_event.is_set():
+            try:
+                with self._lock:
+                    for emotion in self.emotion_state:
+                        self.emotion_state[emotion] = max(self.emotion_state[emotion] * 0.99, 0.0)
+                time.sleep(0.5)
+            except Exception as e:
+                self._handle_crash(e)
+
+    def shutdown(self):
+        self._stop_event.set()
+
+    def run_self_diagnostics(self):
+        with self._lock:
+            fear = self.emotion_state.get("fear", 0.0)
+            anger = self.emotion_state.get("anger", 0.0)
+            self.diagnosed["stress_level"] = (fear + anger) / 2.0
+            self.diagnosed["crash_count"] = self._crash_count
+
+    def snapshot(self) -> Dict[str, Any]:
+        with self._lock:
+            # Simulate changing values for a dynamic dashboard
+            self.awareness = max(0, min(1, self.awareness + 0.01 * (np.random.rand() - 0.5)))
+            self.introspection = max(0, min(1, self.introspection + 0.01 * (np.random.rand() - 0.5)))
+            # Create a snapshot of key values
+            snap = {
+                "awareness": self.awareness,
+                "introspection": self.introspection,
+                "healing": self.healing,
+                "preservation": self.preservation
+            }
+            return snap
+
+    def process_chat_message(self, message: str) -> str:
+        """Processes a chat message from the user."""
+        with self._lock:
+            self.thought.append(f"User chat: {message}")
+            if len(self.thought) > 5: self.thought.pop(0)
+            self.logger.write(f"CHAT_MESSAGE: {message}")
+
+            # Simple rule-based response for now
+            if "hello" in message.lower():
+                response = "Hello. I am VICTOR. How can I assist you?"
+            elif "status" in message.lower():
+                response = f"My current stress level is {self.diagnosed.get('stress_level', 0):.2%}. All systems are nominal."
+            elif "flower of life" in message.lower():
+                response = "That is the core of my being. A fractal cognitive architecture."
+            else:
+                response = f"Message received and logged: '{message}'"
+
+            self.thought.append(f"My response: {response}")
+            if len(self.thought) > 5: self.thought.pop(0)
+            return response
+
+class EmotionChart(QWidget):
+    """A custom widget to draw a simple bar chart for the agent's emotions."""
+    def __init__(self, agent, parent=None):
+        super().__init__(parent)
+        self.agent = agent
+        self.setMinimumHeight(120)
+        self.colors = {
+            "joy": QColor(255, 215, 0), "curiosity": QColor(0, 191, 255), "trust": QColor(50, 205, 50),
+            "sadness": QColor(100, 149, 237), "fear": QColor(128, 0, 128), "anger": QColor(220, 20, 60),
+        }
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        if not self.agent or not self.agent.emotion_state: return
+        emotions = {k: v for k, v in self.agent.emotion_state.items() if k in self.colors}
+        if not emotions: return
+        bar_width = self.width() / (len(emotions) * 2)
+        spacing = bar_width
+        x_pos = spacing / 2
+        font = QFont("Arial", 7)
+        painter.setFont(font)
+        for name, value in emotions.items():
+            bar_height = (self.height() - 20) * value
+            painter.setBrush(self.colors.get(name, QColor(100, 100, 100)))
+            painter.setPen(Qt.NoPen)
+            painter.drawRect(int(x_pos), int(self.height() - bar_height - 15), int(bar_width), int(bar_height))
+            painter.setPen(QColor(200, 200, 200))
+            painter.drawText(int(x_pos), int(self.height() - 2), name[:3].upper())
+            x_pos += bar_width + spacing
+
+class VictorDashboard(QDockWidget):
+    """Dockable widget to display the DigitalAgent's state."""
+    def __init__(self, agent, parent=None):
+        super().__init__("Victor Dashboard", parent)
+        self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea | Qt.BottomDockWidgetArea)
+        self.agent = agent
+        self.main_widget = QWidget()
+        self.main_layout = QVBoxLayout(self.main_widget)
+        self.main_layout.setSpacing(8)
+        title_label = QLabel(f"Agent: {self.agent.id[:8]} (Gen {self.agent.generation})")
+        title_label.setFont(QFont("Arial", 11, QFont.Bold))
+        title_label.setStyleSheet("color: #DDD;")
+        self.main_layout.addWidget(title_label)
+        traits_frame = QFrame(); traits_frame.setFrameShape(QFrame.StyledPanel)
+        traits_layout = QFormLayout(traits_frame); traits_layout.setRowWrapPolicy(QFormLayout.WrapAllRows)
+        self.trait_progress_bars = {}
+        snapshot = self.agent.snapshot()
+        core_traits = ["awareness", "introspection", "healing", "preservation"]
+        for trait in core_traits:
+            bar = QProgressBar(); bar.setRange(0, 100); bar.setValue(int(snapshot.get(trait, 0) * 100))
+            bar.setTextVisible(False); bar.setStyleSheet("QProgressBar { border: 1px solid #555; background-color: #444; } QProgressBar::chunk { background-color: #007ACC; }")
+            self.trait_progress_bars[trait] = bar
+            traits_layout.addRow(f"{trait.capitalize()}:", bar)
+        self.main_layout.addWidget(traits_frame)
+        emotion_frame = QFrame(); emotion_frame.setFrameShape(QFrame.StyledPanel)
+        emotion_layout = QVBoxLayout(emotion_frame)
+        emotion_label = QLabel("Emotion State"); emotion_label.setFont(QFont("Arial", 9, QFont.Bold))
+        self.emotion_chart = EmotionChart(self.agent)
+        emotion_layout.addWidget(emotion_label); emotion_layout.addWidget(self.emotion_chart)
+        self.main_layout.addWidget(emotion_frame)
+        diag_frame = QFrame(); diag_frame.setFrameShape(QFrame.StyledPanel)
+        diag_layout = QFormLayout(diag_frame)
+        self.stress_label = QLabel(); self.crash_label = QLabel()
+        diag_layout.addRow("Stress Level:", self.stress_label); diag_layout.addRow("Crash Count:", self.crash_label)
+        self.main_layout.addWidget(diag_frame)
+        log_frame = QFrame(); log_frame.setFrameShape(QFrame.StyledPanel)
+        log_layout = QVBoxLayout(log_frame)
+        log_label = QLabel("Recent Thoughts"); log_label.setFont(QFont("Arial", 9, QFont.Bold))
+        self.log_text = QLabel("..."); self.log_text.setWordWrap(True)
+        self.log_text.setAlignment(Qt.AlignTop); self.log_text.setMinimumHeight(40)
+        log_layout.addWidget(log_label); log_layout.addWidget(self.log_text)
+        self.main_layout.addWidget(log_frame)
+        self.main_layout.addStretch()
+        self.setWidget(self.main_widget)
+        self.update_dashboard()
+
+    def update_dashboard(self):
+        if not self.agent: return
+        snapshot = self.agent.snapshot()
+        for trait, bar in self.trait_progress_bars.items():
+            bar.setValue(int(snapshot.get(trait, 0) * 100))
+        self.emotion_chart.update()
+        diagnosed = self.agent.diagnosed
+        self.stress_label.setText(f"{diagnosed.get('stress_level', 0):.2%}")
+        self.crash_label.setText(str(diagnosed.get('crash_count', 0)))
+        if self.agent.thought:
+            self.log_text.setText("\n".join(f"- {t}" for t in self.agent.thought[-3:]))
+        else:
+            self.log_text.setText("No thoughts recorded.")
 
 # ==============================================================================
 # SECTION 1: CORE NODE SYSTEM
@@ -236,6 +499,15 @@ class VICtorchBlockNode(NodeBase):
         attended = np.tanh(data) # Simplified
         return {'output': attended.tolist()}
 
+class FractalNode(BandoBlockNode):
+    """A specialized node for the Flower of Life visualizer."""
+    def __init__(self):
+        super().__init__()
+        self.node_type = "FractalNode"
+        self.title = "Fractal Node"
+        self.color = QColor(150, 100, 220) # Distinct purple
+        self.brush_background = QBrush(self.color)
+
 class OutputNode(NodeBase):
     def __init__(self):
         super().__init__("Output", "Output Result", ["result"], [])
@@ -371,6 +643,8 @@ class NodeGraphScene(QGraphicsScene):
                 node = BandoBlockNode()
             elif node_type == "VICtorchBlock":
                 node = VICtorchBlockNode()
+            elif node_type == "FractalNode":
+                node = FractalNode()
             elif node_type == "Output":
                 node = OutputNode()
             else:
@@ -466,6 +740,7 @@ class NodePaletteDock(QDockWidget):
             ("Input Node", InputNode),
             ("Bando Neural Block", BandoBlockNode),
             ("VIC Attention Block", VICtorchBlockNode),
+            ("Fractal Node", FractalNode),
             ("Output Node", OutputNode),
         ]
         
@@ -606,17 +881,31 @@ class AGIBuilderMainWindow(QMainWindow):
 
         self.property_inspector_dock = PropertyInspectorDock()
         self.addDockWidget(Qt.RightDockWidgetArea, self.property_inspector_dock)
-        
-        self.output_dock = QDockWidget("Execution Output", self)
+
+        # Create the combined output/chat dock
+        self.output_dock = QDockWidget("Output & Chat", self)
         self.output_dock.setAllowedAreas(Qt.BottomDockWidgetArea)
+        chat_widget = QWidget()
+        chat_layout = QVBoxLayout(chat_widget)
         self.output_text = QTextEdit()
         self.output_text.setReadOnly(True)
-        self.output_dock.setWidget(self.output_text)
+        self.output_text.setStyleSheet("background-color: #333; color: #EEE;")
+        chat_input_layout = QHBoxLayout()
+        self.chat_input = QLineEdit()
+        self.chat_input.setPlaceholderText("Type a message to VICTOR...")
+        send_button = QPushButton("Send")
+        chat_input_layout.addWidget(self.chat_input)
+        chat_input_layout.addWidget(send_button)
+        chat_layout.addWidget(self.output_text)
+        chat_layout.addLayout(chat_input_layout)
+        self.output_dock.setWidget(chat_widget)
         self.addDockWidget(Qt.BottomDockWidgetArea, self.output_dock)
 
         # Connect signals
         self.scene.node_selected.connect(self.property_inspector_dock.set_node)
         self.node_palette_dock.node_added.connect(self.add_node_from_palette)
+        send_button.clicked.connect(self.send_chat_message)
+        self.chat_input.returnPressed.connect(self.send_chat_message)
 
         # Create menus and toolbars
         self._create_menus()
@@ -631,6 +920,25 @@ class AGIBuilderMainWindow(QMainWindow):
         self.scene.dragEnterEvent = self.scene_drag_enter_event
         self.scene.dropEvent = self.scene_drop_event
         self.setAcceptDrops(True)
+
+        # --- VICTOR-INFINITE INTEGRATION ---
+        self._setup_victor_integration()
+
+    def _setup_victor_integration(self):
+        """Initializes and integrates the VICTOR core components into the GUI."""
+        # 1. Create the agent instance
+        self.victor_agent = DigitalAgent()
+        self.status_bar.showMessage("VICTOR Digital Agent Initialized.", 5000)
+
+        # 2. Create and add the dashboard dock
+        self.dashboard_dock = VictorDashboard(self.victor_agent, self)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.dashboard_dock)
+
+        # 3. Setup a timer to update the dashboard
+        self.dashboard_timer = QTimer(self)
+        self.dashboard_timer.timeout.connect(self.dashboard_dock.update_dashboard)
+        self.dashboard_timer.start(200) # Update every 200ms
+        self.status_bar.showMessage("Victor Dashboard is live.", 5000)
 
     def _create_menus(self):
         menubar = self.menuBar()
@@ -679,6 +987,43 @@ class AGIBuilderMainWindow(QMainWindow):
         run_action.triggered.connect(self.execute_graph)
         run_menu.addAction(run_action)
 
+        # Visualize menu
+        visualize_menu = menubar.addMenu('&Visualize')
+        fol_action = QAction('Generate &Flower of Life', self)
+        fol_action.triggered.connect(self.generate_flower_of_life_layout)
+        visualize_menu.addAction(fol_action)
+
+        menubar.addSeparator()
+
+        # Settings Menu (Placeholder)
+        settings_menu = menubar.addMenu('&Settings')
+        prefs_action = QAction('Preferences...', self)
+        prefs_action.setEnabled(False)
+        settings_menu.addAction(prefs_action)
+
+        # Help Menu
+        help_menu = menubar.addMenu('&Help')
+        about_action = QAction('&About AGI Builder Suite', self)
+        about_action.triggered.connect(self.show_about_dialog)
+        help_menu.addAction(about_action)
+
+    def show_about_dialog(self):
+        """Shows the about dialog."""
+        about_text = """
+        <h3>AGI Builder Suite - VICTOR-INFINITE</h3>
+        <p>Version: 1.1.0-INTEGRATED</p>
+        <p>A visual environment for constructing and visualizing complex AI architectures.</p>
+        <p><b>Core Components:</b></p>
+        <ul>
+            <li>Node-based graph editor</li>
+            <li>Digital Agent state dashboard</li>
+            <li>"Flower of Life" fractal visualizer</li>
+        </ul>
+        <p><i>The future is built here.</i></p>
+        <p>&copy; 2025 Massive Magnetics / Ethica AI / BHeard Network</p>
+        """
+        QMessageBox.about(self, "About AGI Builder Suite", about_text)
+
     def _create_toolbar(self):
         toolbar = QToolBar("Main Toolbar")
         self.addToolBar(toolbar)
@@ -696,6 +1041,10 @@ class AGIBuilderMainWindow(QMainWindow):
         toolbar.addWidget(save_btn)
         
         toolbar.addSeparator()
+
+        fol_btn = QPushButton("Flower of Life")
+        fol_btn.clicked.connect(self.generate_flower_of_life_layout)
+        toolbar.addWidget(fol_btn)
         
         run_btn = QPushButton("Run")
         run_btn.clicked.connect(self.execute_graph)
@@ -704,6 +1053,73 @@ class AGIBuilderMainWindow(QMainWindow):
         delete_btn = QPushButton("Delete")
         delete_btn.clicked.connect(self.scene.delete_selected)
         toolbar.addWidget(delete_btn)
+
+    def generate_flower_of_life_layout(self):
+        self.scene.clear()
+        self.output_text.append("--- Generating Flower of Life Layout ---")
+
+        # Use the center of the current view as the layout center
+        view_rect = self.view.viewport().rect()
+        scene_rect = self.view.mapToScene(view_rect).boundingRect()
+        center_pos = scene_rect.center()
+
+        nodes = {'center': [], 'inner': [], 'outer': []}
+
+        # 1. Create Nodes
+        center_node = FractalNode(); center_node.title = "Central Node"
+        self.scene.add_node(center_node); center_node.setPos(center_pos)
+        nodes['center'].append(center_node)
+
+        inner_radius = 250
+        for i in range(6):
+            angle = (i / 6.0) * 2 * math.pi
+            x = center_pos.x() + inner_radius * math.cos(angle) - center_node.width / 2
+            y = center_pos.y() + inner_radius * math.sin(angle) - center_node.height / 2
+            node = FractalNode(); node.title = f"Inner {i+1}"
+            self.scene.add_node(node); node.setPos(x, y)
+            nodes['inner'].append(node)
+
+        outer_radius = 500
+        for i in range(30):
+            angle = (i / 30.0) * 2 * math.pi
+            x = center_pos.x() + outer_radius * math.cos(angle) - center_node.width / 2
+            y = center_pos.y() + outer_radius * math.sin(angle) - center_node.height / 2
+            node = FractalNode(); node.title = f"Outer {i+1}"
+            self.scene.add_node(node); node.setPos(x, y)
+            nodes['outer'].append(node)
+
+        # 2. Create Connections
+        for inner_node in nodes['inner']:
+            conn = NodeConnection(center_node.get_output_port_scene_pos(0), inner_node.get_input_port_scene_pos(0))
+            self.scene.addItem(conn); self.scene.connections.append(conn)
+
+        for i in range(6):
+            node_a = nodes['inner'][i]
+            node_b = nodes['inner'][(i + 1) % 6]
+            conn = NodeConnection(node_a.get_output_port_scene_pos(0), node_b.get_input_port_scene_pos(0))
+            self.scene.addItem(conn); self.scene.connections.append(conn)
+
+        for i, outer_node in enumerate(nodes['outer']):
+            inner_node_idx = i // 5
+            inner_node = nodes['inner'][inner_node_idx]
+            conn = NodeConnection(inner_node.get_output_port_scene_pos(0), outer_node.get_input_port_scene_pos(0))
+            self.scene.addItem(conn); self.scene.connections.append(conn)
+
+        self.output_text.append("--- Flower of Life Layout Generated ---")
+        self.status_bar.showMessage("Generated Flower of Life layout.", 5000)
+
+    def send_chat_message(self):
+        """Handles sending a message from the chat input to the agent."""
+        user_message = self.chat_input.text()
+        if not user_message:
+            return
+
+        self.output_text.append(f"<font color=#66c2ff>[USER]</font> {user_message}")
+        self.chat_input.clear()
+
+        # Get response from agent
+        agent_response = self.victor_agent.process_chat_message(user_message)
+        self.output_text.append(f"<font color=#a9dc76>[VICTOR]</font> {agent_response}")
 
     def add_node_from_palette(self, node_class):
         # This is handled by drag-drop now
