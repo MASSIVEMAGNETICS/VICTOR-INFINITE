@@ -320,6 +320,179 @@ class VictorDashboard(QDockWidget):
             self.log_text.setText("No thoughts recorded.")
 
 # ==============================================================================
+# SECTION 0C: OMEGATENSOR AUTOGRAD ENGINE
+# ==============================================================================
+# Note: Integrated from PART 2 OF VICTOR/OmegaTensor.py
+
+from contextlib import contextmanager
+
+class _DevicePool:
+    """Minimal device registry. Archon v3 will hot-swap this with real backends."""
+    _DEVICES: Set[str] = {"cpu"}
+    _CURRENT: str = "cpu"
+    @classmethod
+    def register(cls, device: str) -> None: cls._DEVICES.add(device)
+    @classmethod
+    def current(cls) -> str: return cls._CURRENT
+    @classmethod
+    def set(cls, device: str) -> None:
+        if device not in cls._DEVICES: raise ValueError(f"Unknown device '{device}'.")
+        cls._CURRENT = device
+
+class _AMPState:
+    enabled: bool = False
+    dtype: np.dtype = np.float16
+
+@contextmanager
+def amp(enabled: bool = True, dtype: np.dtype = np.float16):
+    """Context manager toggling mixed precision inside the block."""
+    prev_state, _AMPState.enabled, _AMPState.dtype = (_AMPState.enabled, _AMPState.dtype), enabled, dtype
+    try: yield
+    finally: _AMPState.enabled, _AMPState.dtype = prev_state
+
+class OmegaTensor:
+    """NumPy-backed autograd tensor with device & AMP awareness."""
+    __slots__ = ("data", "grad", "_prev", "_backward", "name", "requires_grad", "device", "id")
+
+    def __init__(self, data: Any, *, requires_grad: bool = False, _prev: Optional[Set["OmegaTensor"]] = None,
+                 _backward: Optional[Callable[[], None]] = None, name: str = "", device: Optional[str] = None):
+        if isinstance(data, (int, float)):
+            data = np.array(data, dtype=_AMPState.dtype if _AMPState.enabled else np.float32)
+        elif isinstance(data, list):
+            dtype = data[0].dtype if hasattr(data[0], 'dtype') else (_AMPState.dtype if _AMPState.enabled else np.float32)
+            data = np.array(data, dtype=dtype)
+        elif isinstance(data, np.ndarray):
+            if _AMPState.enabled and data.dtype in (np.float32, np.float64):
+                data = data.astype(_AMPState.dtype)
+        elif isinstance(data, OmegaTensor): data = data.data
+        else: raise TypeError(f"Unsupported data type for OmegaTensor: {type(data)}")
+        self.data: np.ndarray = data
+        self.grad: Optional[np.ndarray] = None
+        self._prev: Set["OmegaTensor"] = _prev or set()
+        self._backward: Callable[[], None] = _backward or (lambda: None)
+        self.name: str = name
+        self.requires_grad: bool = requires_grad
+        self.device: str = device or _DevicePool.current()
+        self.id: str = uuid.uuid4().hex[:8]
+
+    @property
+    def shape(self) -> Tuple[int, ...]: return self.data.shape
+    @property
+    def ndim(self) -> int: return self.data.ndim
+    @property
+    def dtype(self) -> np.dtype: return self.data.dtype
+    def __len__(self) -> int: return len(self.data)
+
+    def __add__(self, other: "OmegaTensor" | float | int) -> "OmegaTensor":
+        other = other if isinstance(other, OmegaTensor) else OmegaTensor(other, requires_grad=False)
+        out = OmegaTensor(self.data + other.data, requires_grad=self.requires_grad or other.requires_grad, _prev={self, other}, name="add")
+        def _backward():
+            if self.requires_grad: self.grad = (self.grad if self.grad is not None else np.zeros_like(self.data)) + self._handle_broadcast(out.grad, self.shape)
+            if other.requires_grad: other.grad = (other.grad if other.grad is not None else np.zeros_like(other.data)) + self._handle_broadcast(out.grad, other.shape)
+        out._backward = _backward
+        return out
+
+    def __mul__(self, other: "OmegaTensor" | float | int) -> "OmegaTensor":
+        other = other if isinstance(other, OmegaTensor) else OmegaTensor(other, requires_grad=False)
+        out = OmegaTensor(self.data * other.data, requires_grad=self.requires_grad or other.requires_grad, _prev={self, other}, name="mul")
+        def _backward():
+            if self.requires_grad: self.grad = (self.grad if self.grad is not None else np.zeros_like(self.data)) + self._handle_broadcast(other.data * out.grad, self.shape)
+            if other.requires_grad: other.grad = (other.grad if other.grad is not None else np.zeros_like(other.data)) + self._handle_broadcast(self.data * out.grad, other.shape)
+        out._backward = _backward
+        return out
+
+    def __matmul__(self, other: "OmegaTensor") -> "OmegaTensor":
+        if not isinstance(other, OmegaTensor): raise TypeError("@ operand must be OmegaTensor")
+        out = OmegaTensor(self.data @ other.data, requires_grad=self.requires_grad or other.requires_grad, _prev={self, other}, name="matmul")
+        def _backward():
+            if self.requires_grad: self.grad = (self.grad if self.grad is not None else np.zeros_like(self.data)) + out.grad @ other.data.T
+            if other.requires_grad: other.grad = (other.grad if other.grad is not None else np.zeros_like(other.data)) + self.data.T @ out.grad
+        out._backward = _backward
+        return out
+
+    def pow(self, n: float) -> "OmegaTensor":
+        out = OmegaTensor(self.data**n, requires_grad=self.requires_grad, _prev={self}, name="pow")
+        def _backward():
+            if self.requires_grad: self.grad = (self.grad if self.grad is not None else np.zeros_like(self.data)) + (n * self.data**(n - 1)) * out.grad
+        out._backward = _backward
+        return out
+
+    def exp(self) -> "OmegaTensor":
+        out = OmegaTensor(np.exp(self.data), requires_grad=self.requires_grad, _prev={self}, name="exp")
+        def _backward():
+            if self.requires_grad: self.grad = (self.grad if self.grad is not None else np.zeros_like(self.data)) + out.data * out.grad
+        out._backward = _backward
+        return out
+
+    def reshape(self, *shape: int) -> "OmegaTensor":
+        out = OmegaTensor(self.data.reshape(*shape), requires_grad=self.requires_grad, _prev={self}, name="reshape")
+        def _backward():
+            if self.requires_grad: self.grad = (self.grad if self.grad is not None else np.zeros_like(self.data)) + out.grad.reshape(self.shape)
+        out._backward = _backward
+        return out
+
+    def sum(self, axis: Optional[int | Tuple[int, ...]] = None, keepdims: bool = False) -> "OmegaTensor":
+        out = OmegaTensor(np.sum(self.data, axis=axis, keepdims=keepdims), requires_grad=self.requires_grad, _prev={self}, name="sum")
+        def _backward():
+            if self.requires_grad: self.grad = (self.grad if self.grad is not None else np.zeros_like(self.data)) + self._handle_broadcast(out.grad, self.shape)
+        out._backward = _backward
+        return out
+
+    def softmax(self, axis: int = -1) -> "OmegaTensor":
+        e_x = np.exp(self.data - np.max(self.data, axis=axis, keepdims=True))
+        s = e_x / e_x.sum(axis=axis, keepdims=True)
+        out = OmegaTensor(s, requires_grad=self.requires_grad, _prev={self}, name="softmax")
+        def _backward():
+            if self.requires_grad:
+                s_grad = out.grad
+                s_with_grad = out.data * s_grad
+                grad_sum = np.sum(s_with_grad, axis=axis, keepdims=True)
+                self.grad = (self.grad if self.grad is not None else np.zeros_like(self.data)) + out.data * (s_grad - grad_sum)
+        out._backward = _backward
+        return out
+
+    def tanh(self) -> "OmegaTensor":
+        t = np.tanh(self.data)
+        out = OmegaTensor(t, requires_grad=self.requires_grad, _prev={self}, name="tanh")
+        def _backward():
+            if self.requires_grad:
+                # The gradient of tanh(x) is 1 - tanh(x)^2
+                self.grad = (self.grad if self.grad is not None else np.zeros_like(self.data)) + (1 - t**2) * out.grad
+        out._backward = _backward
+        return out
+
+    def zero_grad(self) -> None: self.grad = None
+    def backward(self, grad: Optional[np.ndarray | float] = None) -> None:
+        if not self.requires_grad: raise RuntimeError("Called backward on a tensor that does not require gradients.")
+        self.grad = grad if grad is not None else np.ones_like(self.data)
+        if isinstance(self.grad, (int, float)): self.grad = np.array(self.grad)
+        topo, visited = [], set()
+        def build_topo(t):
+            if t not in visited:
+                visited.add(t)
+                for child in t._prev: build_topo(child)
+                topo.append(t)
+        build_topo(self)
+        for node in reversed(topo): node._backward()
+
+    def numpy(self) -> np.ndarray: return self.data
+    def _handle_broadcast(self, grad: np.ndarray, target_shape: Tuple[int, ...]) -> np.ndarray:
+        if grad.shape == target_shape: return grad
+        while len(grad.shape) > len(target_shape): grad = grad.sum(axis=0)
+        for i, (grad_dim, target_dim) in enumerate(zip(grad.shape, target_shape)):
+            if grad_dim != target_dim: grad = grad.sum(axis=i, keepdims=True)
+        return grad
+
+    __radd__ = __add__
+    __rmul__ = __mul__
+    def __neg__(self) -> "OmegaTensor": return self * -1
+    def __sub__(self, other: "OmegaTensor" | float | int) -> "OmegaTensor": return self + (-other)
+    def __rsub__(self, other: "OmegaTensor" | float | int) -> "OmegaTensor": return (-self) + other
+    def __truediv__(self, other: "OmegaTensor" | float | int) -> "OmegaTensor": return self * (other if isinstance(other, OmegaTensor) else OmegaTensor(other)).pow(-1)
+    def __rtruediv__(self, other: "OmegaTensor" | float | int) -> "OmegaTensor": return other * self.pow(-1)
+    def __repr__(self) -> str: return f"OmegaTensor(name={self.name or 'tensor'}, shape={self.shape}, dtype={self.dtype}, grad_fn={self._backward is not None})"
+
+# ==============================================================================
 # SECTION 1: CORE NODE SYSTEM
 # ==============================================================================
 
@@ -445,7 +618,7 @@ class NodeBase(QGraphicsItem):
 class InputNode(NodeBase):
     def __init__(self):
         super().__init__("Input", "Input Data", [], ["data"])
-        self.data_value = "Initial Input"
+        self.data_value = "[1.0, -2.0, 3.0]" # Example data as a string
 
     def get_parameters(self):
         return {'data_value': self.data_value}
@@ -454,50 +627,85 @@ class InputNode(NodeBase):
         self.data_value = params.get('data_value', self.data_value)
 
     def execute(self, input_data):
-        return {'data': self.data_value}
+        try:
+            # Parse the string into a list of floats
+            data_list = json.loads(self.data_value)
+            # Return as an OmegaTensor
+            return {'data': OmegaTensor(data_list, name="input_tensor")}
+        except json.JSONDecodeError:
+            self.scene().views()[0].parent().output_text.append(f"Error: Invalid JSON in Input Node: {self.data_value}")
+            return {'data': OmegaTensor([], name="error_tensor")}
 
 class BandoBlockNode(NodeBase):
     def __init__(self):
         super().__init__("BandoBlock", "Bando Neural Block", ["input"], ["output"])
         self.dim = 32
-        self.lr = 0.01
+        self.weights = OmegaTensor(np.random.randn(self.dim, self.dim) * 0.01, requires_grad=True, name=f"{self.title}_W")
+        self.bias = OmegaTensor(np.zeros(self.dim), requires_grad=True, name=f"{self.title}_B")
 
     def get_parameters(self):
-        return {'dim': self.dim, 'lr': self.lr}
+        return {'dim': self.dim}
 
     def set_parameters(self, params):
-        self.dim = params.get('dim', self.dim)
-        self.lr = params.get('lr', self.lr)
+        new_dim = params.get('dim', self.dim)
+        if new_dim != self.dim:
+            self.dim = new_dim
+            self.weights = OmegaTensor(np.random.randn(self.dim, self.dim) * 0.01, requires_grad=True, name=f"{self.title}_W")
+            self.bias = OmegaTensor(np.zeros(self.dim), requires_grad=True, name=f"{self.title}_B")
 
     def execute(self, input_data):
-        # Simulate block processing
-        data = input_data.get('input', np.random.randn(self.dim))
-        if isinstance(data, str):
-            data = np.array([abs(hash(data + str(i))) % 1000 / 1000.0 for i in range(self.dim)])
-        processed = data + np.random.randn(self.dim) * self.lr # Simple transformation
-        return {'output': processed.tolist()}
+        input_tensor = input_data.get('input', OmegaTensor(np.random.randn(self.dim)))
+        # Reshape if necessary
+        if input_tensor.shape != (self.dim,):
+            # This is a simplification; a real network would handle batching etc.
+            if len(input_tensor.data.flatten()) == self.dim:
+                 input_tensor = input_tensor.reshape(self.dim)
+            else: # Pad or truncate
+                current_size = len(input_tensor.data.flatten())
+                new_data = np.resize(input_tensor.data.flatten(), self.dim)
+                input_tensor = OmegaTensor(new_data)
+
+        output = (input_tensor @ self.weights) + self.bias
+        return {'output': output.tanh()}
+
+    def __repr__(self):
+        return f"<BandoBlockNode(dim={self.dim}) at {self.pos().x():.1f},{self.pos().y():.1f}>"
 
 class VICtorchBlockNode(NodeBase):
     def __init__(self):
         super().__init__("VICtorchBlock", "VIC Attention Block", ["input"], ["output"])
         self.dim = 32
         self.heads = 4
+        # Simplified weights for attention-like mechanism
+        self.w_q = OmegaTensor(np.random.randn(self.dim, self.dim) * 0.01, requires_grad=True, name=f"{self.title}_WQ")
+        self.w_k = OmegaTensor(np.random.randn(self.dim, self.dim) * 0.01, requires_grad=True, name=f"{self.title}_WK")
+        self.w_v = OmegaTensor(np.random.randn(self.dim, self.dim) * 0.01, requires_grad=True, name=f"{self.title}_WV")
 
     def get_parameters(self):
         return {'dim': self.dim, 'heads': self.heads}
 
     def set_parameters(self, params):
+        # In a real scenario, changing dim/heads would require re-initializing weights
         self.dim = params.get('dim', self.dim)
         self.heads = params.get('heads', self.heads)
 
     def execute(self, input_data):
-        # Simulate attention processing
-        data = input_data.get('input', np.random.randn(self.dim))
-        if isinstance(data, str):
-            data = np.array([abs(hash(data + str(i))) % 1000 / 1000.0 for i in range(self.dim)])
-        # Simple attention-like operation
-        attended = np.tanh(data) # Simplified
-        return {'output': attended.tolist()}
+        input_tensor = input_data.get('input', OmegaTensor(np.random.randn(self.dim)))
+        if input_tensor.shape != (self.dim,):
+            new_data = np.resize(input_tensor.data.flatten(), self.dim)
+            input_tensor = OmegaTensor(new_data)
+
+        # Simplified attention
+        q = input_tensor @ self.w_q
+        k = input_tensor @ self.w_k
+        v = input_tensor @ self.w_v
+
+        scores = (q @ k.reshape(self.dim, 1)).pow(0.5) # Simplified scores
+        attention = scores.softmax() * v
+        return {'output': attention}
+
+    def __repr__(self):
+        return f"<VICtorchBlockNode(dim={self.dim}) at {self.pos().x():.1f},{self.pos().y():.1f}>"
 
 class FractalNode(BandoBlockNode):
     """A specialized node for the Flower of Life visualizer."""
@@ -514,34 +722,74 @@ class OutputNode(NodeBase):
         self.output_display = ""
 
     def execute(self, input_data):
-        result = input_data.get('result', 'No result')
-        self.output_display = str(result)
-        print(f"[OUTPUT] {self.output_display}")
-        return {}
+        result = input_data.get('result', OmegaTensor([0.0]))
+        self.output_display = str(result.data)
+        # No print statement needed, handled by logger
+        return {} # Output nodes don't produce tensors for further connections
+
+class LossNode(NodeBase):
+    """Calculates Mean Squared Error loss and triggers backpropagation."""
+    def __init__(self):
+        super().__init__("Loss", "MSE Loss", ["prediction"], ["loss"])
+        self.target_value = "[0.0, 0.0, 0.0]"
+
+    def get_parameters(self):
+        return {'target_value': self.target_value}
+
+    def set_parameters(self, params):
+        self.target_value = params.get('target_value', self.target_value)
+
+    def execute(self, input_data):
+        prediction = input_data.get('prediction')
+        if prediction is None:
+            return {'loss': OmegaTensor(0.0, name="loss_error")}
+
+        try:
+            target_list = json.loads(self.target_value)
+            target = OmegaTensor(target_list, name="target")
+
+            # Ensure shapes match
+            if prediction.shape != target.shape:
+                # This is a simplification. A real loss function would have more robust error handling.
+                self.scene().views()[0].parent().output_text.append(f"<font color=orange>Warning: Shape mismatch in LossNode. Prediction: {prediction.shape}, Target: {target.shape}. Resizing target.</font>")
+                new_target_data = np.resize(target.data, prediction.shape)
+                target = OmegaTensor(new_target_data)
+
+            loss = ((prediction - target).pow(2)).sum()
+            loss.name = "loss"
+            return {'loss': loss}
+        except json.JSONDecodeError:
+            self.scene().views()[0].parent().output_text.append(f"Error: Invalid JSON in Loss Node: {self.target_value}")
+            return {'loss': OmegaTensor(0.0, name="loss_error")}
 
 # ==============================================================================
 # SECTION 2: CONNECTION SYSTEM
 # ==============================================================================
 
 class NodeConnection(QGraphicsLineItem):
-    """Visual connection between two nodes."""
-    def __init__(self, source_port_scene_pos: QPointF, target_port_scene_pos: QPointF):
+    """Visual and logical connection between two nodes."""
+    def __init__(self, source_node: 'NodeBase', source_port_idx: int, target_node: 'NodeBase', target_port_idx: int):
         super().__init__()
-        self.setPen(QPen(QColor(200, 200, 100), 2))
+        self.source_node = source_node
+        self.source_port_idx = source_port_idx
+        self.target_node = target_node
+        self.target_port_idx = target_port_idx
+
+        self.setPen(QPen(QColor(200, 200, 100), 2, Qt.SolidLine))
         self.setZValue(-1)
-        self.source_port_scene_pos = source_port_scene_pos
-        self.target_port_scene_pos = target_port_scene_pos
         self.update_line()
 
     def update_line(self):
-        self.setLine(QLineF(self.source_port_scene_pos, self.target_port_scene_pos))
+        p1 = self.source_node.get_output_port_scene_pos(self.source_port_idx)
+        p2 = self.target_node.get_input_port_scene_pos(self.target_port_idx)
+        self.setLine(QLineF(p1, p2))
 
-    def serialize(self, source_node_id, source_port_idx, target_node_id, target_port_idx):
+    def serialize(self):
         return {
-            'source_node_id': source_node_id,
-            'source_port_index': source_port_idx,
-            'target_node_id': target_node_id,
-            'target_port_index': target_port_idx
+            'source_node_id': self.source_node.node_id,
+            'source_port_index': self.source_port_idx,
+            'target_node_id': self.target_node.node_id,
+            'target_port_index': self.target_port_idx
         }
 
 # ==============================================================================
@@ -569,9 +817,7 @@ class NodeGraphScene(QGraphicsScene):
     def delete_selected(self):
         if self.selected_node:
             # Remove connections associated with this node
-            connections_to_remove = [c for c in self.connections if
-                                     c.source_port_scene_pos in [p.pos() for p in self.selected_node.output_ports] or
-                                     c.target_port_scene_pos in [p.pos() for p in self.selected_node.input_ports]]
+            connections_to_remove = [c for c in self.connections if c.source_node == self.selected_node or c.target_node == self.selected_node]
             for conn in connections_to_remove:
                 self.removeItem(conn)
                 self.connections.remove(conn)
@@ -587,82 +833,70 @@ class NodeGraphScene(QGraphicsScene):
             self.selected_node = item
             self.node_selected.emit(item)
         elif isinstance(item, QGraphicsEllipseItem) and item.parentItem():
-            # Clicked on a port
             parent_node = item.parentItem()
             if item in parent_node.output_ports:
-                self.start_port = item
-                self.start_port_scene_pos = parent_node.mapToScene(item.pos())
-                self.temp_line = QGraphicsLineItem(QLineF(self.start_port_scene_pos, event.scenePos()))
+                self.start_port_info = (parent_node, parent_node.output_ports.index(item))
+                self.temp_line = QGraphicsLineItem(QLineF(parent_node.get_output_port_scene_pos(self.start_port_info[1]), event.scenePos()))
                 self.temp_line.setPen(QPen(QColor(100, 200, 255), 2, Qt.DashLine))
                 self.addItem(self.temp_line)
+        else:
+            self.selected_node = None
+            self.node_selected.emit(None)
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
         if self.temp_line:
-            new_line = QLineF(self.start_port_scene_pos, event.scenePos())
-            self.temp_line.setLine(new_line)
+            p1 = self.start_port_info[0].get_output_port_scene_pos(self.start_port_info[1])
+            self.temp_line.setLine(QLineF(p1, event.scenePos()))
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
-        if self.temp_line and self.start_port:
+        if self.temp_line and self.start_port_info:
             item = self.itemAt(event.scenePos(), self.views()[0].transform())
             if isinstance(item, QGraphicsEllipseItem) and item.parentItem() and item in item.parentItem().input_ports:
                 target_node = item.parentItem()
-                target_port = item
+                target_port_idx = target_node.input_ports.index(item)
+                source_node, source_port_idx = self.start_port_info
                 # Create permanent connection
-                connection = NodeConnection(self.start_port_scene_pos, target_node.mapToScene(target_port.pos()))
+                connection = NodeConnection(source_node, source_port_idx, target_node, target_port_idx)
                 self.addItem(connection)
                 self.connections.append(connection)
             self.removeItem(self.temp_line)
             self.temp_line = None
-            self.start_port = None
-            self.start_port_scene_pos = None
+            self.start_port_info = None
         super().mouseReleaseEvent(event)
 
     def serialize(self):
         nodes_data = [node.serialize() for node in self.nodes.values()]
-        connections_data = []
-        # This is a simplified serialization, real one needs to map ports correctly
-        for conn in self.connections:
-            connections_data.append({
-                'source_pos': (conn.source_port_scene_pos.x(), conn.source_port_scene_pos.y()),
-                'target_pos': (conn.target_port_scene_pos.x(), conn.target_port_scene_pos.y())
-            })
+        connections_data = [conn.serialize() for conn in self.connections]
         return {'nodes': nodes_data, 'connections': connections_data}
 
     def deserialize(self, data):
         self.clear()
-        self.nodes = {}
-        self.connections = []
-        # Re-create nodes
+        nodes_map = {}
         for node_data in data.get('nodes', []):
             node_type = node_data['type']
-            if node_type == "Input":
-                node = InputNode()
-            elif node_type == "BandoBlock":
-                node = BandoBlockNode()
-            elif node_type == "VICtorchBlock":
-                node = VICtorchBlockNode()
-            elif node_type == "FractalNode":
-                node = FractalNode()
-            elif node_type == "Output":
-                node = OutputNode()
-            else:
-                continue # Unknown node type
+            if node_type == "Input": node = InputNode()
+            elif node_type == "BandoBlock": node = BandoBlockNode()
+            elif node_type == "VICtorchBlock": node = VICtorchBlockNode()
+            elif node_type == "FractalNode": node = FractalNode()
+            elif node_type == "Output": node = OutputNode()
+            elif node_type == "LossNode": node = LossNode()
+            else: continue
             node.deserialize(node_data)
             self.add_node(node)
-        # Re-create connections (simplified)
+            nodes_map[node.node_id] = node
+
         for conn_data in data.get('connections', []):
-            # In a full implementation, you'd find the actual nodes and ports
-            # and create a proper NodeConnection object
-            line = QGraphicsLineItem(
-                conn_data['source_pos'][0], conn_data['source_pos'][1],
-                conn_data['target_pos'][0], conn_data['target_pos'][1]
-            )
-            line.setPen(QPen(QColor(200, 200, 100), 2))
-            line.setZValue(-1)
-            self.addItem(line)
-            # self.connections.append(...) # Need proper object
+            source_node = nodes_map.get(conn_data['source_node_id'])
+            target_node = nodes_map.get(conn_data['target_node_id'])
+            if source_node and target_node:
+                conn = NodeConnection(
+                    source_node, conn_data['source_port_index'],
+                    target_node, conn_data['target_port_index']
+                )
+                self.addItem(conn)
+                self.connections.append(conn)
 
     def clear(self):
         for item in list(self.items()):
@@ -742,6 +976,7 @@ class NodePaletteDock(QDockWidget):
             ("VIC Attention Block", VICtorchBlockNode),
             ("Fractal Node", FractalNode),
             ("Output Node", OutputNode),
+            ("Loss Node", LossNode),
         ]
         
         for name, node_class in node_types:
@@ -1058,14 +1293,12 @@ class AGIBuilderMainWindow(QMainWindow):
         self.scene.clear()
         self.output_text.append("--- Generating Flower of Life Layout ---")
 
-        # Use the center of the current view as the layout center
         view_rect = self.view.viewport().rect()
         scene_rect = self.view.mapToScene(view_rect).boundingRect()
         center_pos = scene_rect.center()
 
         nodes = {'center': [], 'inner': [], 'outer': []}
 
-        # 1. Create Nodes
         center_node = FractalNode(); center_node.title = "Central Node"
         self.scene.add_node(center_node); center_node.setPos(center_pos)
         nodes['center'].append(center_node)
@@ -1088,21 +1321,21 @@ class AGIBuilderMainWindow(QMainWindow):
             self.scene.add_node(node); node.setPos(x, y)
             nodes['outer'].append(node)
 
-        # 2. Create Connections
+        # Create Connections using the new constructor
         for inner_node in nodes['inner']:
-            conn = NodeConnection(center_node.get_output_port_scene_pos(0), inner_node.get_input_port_scene_pos(0))
+            conn = NodeConnection(center_node, 0, inner_node, 0)
             self.scene.addItem(conn); self.scene.connections.append(conn)
 
         for i in range(6):
             node_a = nodes['inner'][i]
             node_b = nodes['inner'][(i + 1) % 6]
-            conn = NodeConnection(node_a.get_output_port_scene_pos(0), node_b.get_input_port_scene_pos(0))
+            conn = NodeConnection(node_a, 0, node_b, 0)
             self.scene.addItem(conn); self.scene.connections.append(conn)
 
         for i, outer_node in enumerate(nodes['outer']):
             inner_node_idx = i // 5
             inner_node = nodes['inner'][inner_node_idx]
-            conn = NodeConnection(inner_node.get_output_port_scene_pos(0), outer_node.get_input_port_scene_pos(0))
+            conn = NodeConnection(inner_node, 0, outer_node, 0)
             self.scene.addItem(conn); self.scene.connections.append(conn)
 
         self.output_text.append("--- Flower of Life Layout Generated ---")
@@ -1178,56 +1411,89 @@ class AGIBuilderMainWindow(QMainWindow):
                 QMessageBox.critical(self, "Error", f"Failed to save graph: {e}")
 
     def execute_graph(self):
+        self.output_text.append("--- Preparing Graph for Execution ---")
+
+        # 1. Build adjacency list and in-degree map
+        adj = {node.node_id: [] for node in self.scene.nodes.values()}
+        in_degree = {node.node_id: 0 for node in self.scene.nodes.values()}
+
+        for conn in self.scene.connections:
+            adj[conn.source_node.node_id].append(conn.target_node)
+            in_degree[conn.target_node.node_id] += 1
+
+        # 2. Find starting nodes (in-degree of 0)
+        queue = deque([node for node in self.scene.nodes.values() if in_degree[node.node_id] == 0])
+        sorted_nodes = []
+
+        # 3. Kahn's Algorithm for Topological Sort
+        while queue:
+            node = queue.popleft()
+            sorted_nodes.append(node)
+
+            for neighbor in adj[node.node_id]:
+                in_degree[neighbor.node_id] -= 1
+                if in_degree[neighbor.node_id] == 0:
+                    queue.append(neighbor)
+
+        # 4. Check for cycles
+        if len(sorted_nodes) != len(self.scene.nodes):
+            self.output_text.append("<font color=red>Error: Graph contains a cycle! Execution aborted.</font>")
+            return
+            
+        self.output_text.append("--- Topologically Sorted Execution Order ---")
+        for i, node in enumerate(sorted_nodes):
+            self.output_text.append(f"{i+1}. {node.title} ({node.node_type})")
+
         self.output_text.append("--- EXECUTION START ---")
         try:
-            # Simple execution: find Input node, then propagate forward
-            # This is a very basic execution engine
-            input_nodes = [n for n in self.scene.nodes.values() if isinstance(n, InputNode)]
-            output_nodes = [n for n in self.scene.nodes.values() if isinstance(n, OutputNode)]
-            
-            if not input_nodes:
-                self.output_text.append("Error: No Input node found.")
-                return
-
-            # Store results for each node
-            node_results = {}
-            
-            # Start with input node
-            for input_node in input_nodes:
-                input_result = input_node.execute({})
-                node_results[input_node.node_id] = input_result
-                self.output_text.append(f"Executed Input Node '{input_node.title}': {input_result}")
-
-            # Simple BFS-like execution (not topologically sorted, so order matters)
-            # A real engine would sort nodes topologically
-            executed_nodes = set(n.node_id for n in input_nodes)
-            to_execute = [n for n in self.scene.nodes.values() if n.node_id not in executed_nodes]
-
-            for node in to_execute:
-                # Gather inputs from connected nodes
-                # This is a simplification; a real one would trace connections
+            node_results = {}  # {node_id: {port_name: OmegaTensor}}
+            for node in sorted_nodes:
+                # Gather inputs from connections
                 input_data = {}
-                # For demo, we'll just pass the last result
-                if node_results:
-                    last_result_key = list(node_results.keys())[-1]
-                    input_data = node_results[last_result_key]
+                for conn in self.scene.connections:
+                    if conn.target_node == node:
+                        source_node_id = conn.source_node.node_id
+                        source_port_idx = conn.source_port_index
+                        target_port_idx = conn.target_port_index
+
+                        if source_node_id in node_results:
+                            source_output_dict = node_results[source_node_id]
+                            source_port_name = conn.source_node.outputs[source_port_idx]
+                            target_port_name = node.inputs[target_port_idx]
+
+                            if source_port_name in source_output_dict:
+                                input_data[target_port_name] = source_output_dict[source_port_name]
+
+                # Execute the node
+                self.output_text.append(f"<b>Executing: {node.title}</b>")
+                result_dict = node.execute(input_data)
+                node_results[node.node_id] = result_dict
+
+                # Log outputs
+                for port_name, tensor in result_dict.items():
+                    self.output_text.append(f"  <font color=#a9dc76>&gt; Output '{port_name}':</font> {tensor}")
+
+            # --- BACKPROPAGATION ---
+            loss_nodes = [node for node in sorted_nodes if isinstance(node, LossNode)]
+            if loss_nodes:
+                self.output_text.append("--- Performing Backpropagation ---")
+                final_loss = node_results[loss_nodes[-1].node_id]['loss']
+                final_loss.backward()
+                self.output_text.append(f"<b>Final Loss: {final_loss.data:.4f}</b>")
                 
-                try:
-                    result = node.execute(input_data)
-                    node_results[node.node_id] = result
-                    self.output_text.append(f"Executed Node '{node.title}' ({node.node_type}): {list(result.keys())}")
-                    if isinstance(node, OutputNode):
-                        self.output_text.append(f"  Output Display: {node.output_display}")
-                except Exception as e:
-                    self.output_text.append(f"Error executing node '{node.title}': {e}")
-                    traceback.print_exc()
+                self.output_text.append("--- Gradients ---")
+                for node in sorted_nodes:
+                    if hasattr(node, 'weights') and node.weights.grad is not None:
+                        grad_preview = np.round(node.weights.grad.flatten()[:5], 4)
+                        self.output_text.append(f"&gt; <b>{node.title}</b> weights grad: {grad_preview}...")
+                    if hasattr(node, 'bias') and node.bias.grad is not None:
+                        grad_preview = np.round(node.bias.grad.flatten()[:5], 4)
+                        self.output_text.append(f"&gt; <b>{node.title}</b> bias grad: {grad_preview}...")
 
             self.output_text.append("--- EXECUTION END ---")
-            self.status_bar.showMessage("Graph execution completed.")
-
+            self.status_bar.showMessage("Graph execution completed successfully.", 5000)
         except Exception as e:
-            error_msg = f"Execution failed: {e}"
-            self.output_text.append(f"Error: {error_msg}")
+            self.output_text.append(f"<font color=red>Execution failed: {e}</font>")
             traceback.print_exc()
             self.status_bar.showMessage("Graph execution failed.")
 
