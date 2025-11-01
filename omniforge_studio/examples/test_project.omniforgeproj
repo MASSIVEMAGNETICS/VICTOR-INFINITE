@@ -1,0 +1,54 @@
+{
+  "metadata": {
+    "version": "1.1.0",
+    "created": "2025-11-01T15:26:52.828631",
+    "modified": "2025-11-01T15:26:52.828711",
+    "author": "Test User",
+    "description": "Serialization test",
+    "tags": []
+  },
+  "graph": {
+    "nodes": {
+      "node_1": {
+        "node_type": "TestNode",
+        "params": {
+          "value": 42
+        },
+        "created": "2025-11-01T15:26:52.828642"
+      },
+      "node_2": {
+        "node_type": "TestNode",
+        "params": {
+          "value": 99
+        },
+        "created": "2025-11-01T15:26:52.828646"
+      }
+    },
+    "wires": {
+      "wire_1": {
+        "from_node": "node_1",
+        "from_port": "out",
+        "to_node": "node_2",
+        "to_port": "in"
+      }
+    },
+    "node_positions": {
+      "node_1": {
+        "x": 50,
+        "y": 50
+      },
+      "node_2": {
+        "x": 200,
+        "y": 50
+      }
+    }
+  },
+  "runtime_config": {
+    "tick_rate": 60,
+    "max_workers": null,
+    "execution_mode": "real_time",
+    "seed": null
+  },
+  "node_code": {},
+  "binary_data": {}
+}

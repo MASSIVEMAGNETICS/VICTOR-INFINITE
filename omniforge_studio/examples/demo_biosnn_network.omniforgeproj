@@ -1,0 +1,59 @@
+{
+  "metadata": {
+    "version": "1.1.0",
+    "created": "2025-11-01T15:26:52.827862",
+    "modified": "2025-11-01T15:26:52.827911",
+    "author": "OmniForge Team",
+    "description": "Demo: BioSNN with periodic stimulus",
+    "tags": [
+      "neural",
+      "demo",
+      "spiking"
+    ]
+  },
+  "graph": {
+    "nodes": {
+      "stim_gen_1": {
+        "node_type": "StimGenerator",
+        "params": {
+          "mode": "periodic",
+          "amplitude": 2.0
+        },
+        "created": "2025-11-01T15:26:52.827872"
+      },
+      "bio_snn_1": {
+        "node_type": "BioSNN",
+        "params": {
+          "n_neurons": 30
+        },
+        "created": "2025-11-01T15:26:52.827875"
+      }
+    },
+    "wires": {
+      "wire_1": {
+        "from_node": "stim_gen_1",
+        "from_port": "stimulus",
+        "to_node": "bio_snn_1",
+        "to_port": "stimulus"
+      }
+    },
+    "node_positions": {
+      "stim_gen_1": {
+        "x": 100,
+        "y": 200
+      },
+      "bio_snn_1": {
+        "x": 400,
+        "y": 200
+      }
+    }
+  },
+  "runtime_config": {
+    "tick_rate": 60,
+    "max_workers": null,
+    "execution_mode": "real_time",
+    "seed": null
+  },
+  "node_code": {},
+  "binary_data": {}
+}

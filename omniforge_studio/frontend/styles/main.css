@@ -1,0 +1,166 @@
+/* 
+FILE: omniforge_studio/frontend/styles/main.css
+VERSION: v1.1.0-VRAS
+NAME: OmniForge Studio Main Styles
+PURPOSE: Neon-cyber dark theme styling
+AUTHOR: OmniForge Team / Massive Magnetics
+LICENSE: Proprietary
+*/
+
+:root {
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #151520;
+    --bg-tertiary: #1a1a2e;
+    --accent-cyan: #00fff9;
+    --accent-purple: #b026ff;
+    --accent-pink: #ff2e97;
+    --accent-green: #00ff88;
+    --text-primary: #e0e0ff;
+    --text-secondary: #a0a0c0;
+    --border-color: #2a2a3e;
+    --glow-cyan: 0 0 10px rgba(0, 255, 249, 0.5);
+    --glow-purple: 0 0 10px rgba(176, 38, 255, 0.5);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    overflow: hidden;
+}
+
+/* Main Layout */
+.omniforge-studio {
+    display: grid;
+    grid-template-columns: 300px 1fr 300px;
+    grid-template-rows: 60px 1fr 200px;
+    height: 100vh;
+    gap: 2px;
+    background: var(--bg-primary);
+}
+
+/* Header / Control Bar */
+.control-bar {
+    grid-column: 1 / -1;
+    background: var(--bg-secondary);
+    border-bottom: 2px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 20px;
+}
+
+.logo {
+    font-size: 24px;
+    font-weight: bold;
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.control-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.control-btn {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--accent-cyan);
+    color: var(--accent-cyan);
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.control-btn:hover {
+    background: var(--accent-cyan);
+    color: var(--bg-primary);
+    box-shadow: var(--glow-cyan);
+}
+
+.control-btn.active {
+    background: var(--accent-green);
+    color: var(--bg-primary);
+    border-color: var(--accent-green);
+}
+
+.telemetry-display {
+    margin-left: auto;
+    display: flex;
+    gap: 20px;
+    font-size: 12px;
+}
+
+/* Panels */
+.node-builder, .settings-panel {
+    background: var(--bg-secondary);
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.panel-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 15px;
+    color: var(--accent-purple);
+}
+
+/* Canvas */
+.canvas-container {
+    background: var(--bg-primary);
+    position: relative;
+    overflow: hidden;
+}
+
+.canvas-grid {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        linear-gradient(var(--border-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
+    background-size: 50px 50px;
+    opacity: 0.3;
+}
+
+/* Bottom Tabs */
+.bottom-tabs {
+    grid-column: 1 / -1;
+    background: var(--bg-secondary);
+    border-top: 2px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+}
+
+.tab-headers {
+    display: flex;
+    gap: 2px;
+    background: var(--bg-tertiary);
+}
+
+.tab-header {
+    padding: 10px 20px;
+    background: var(--bg-secondary);
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.tab-header.active {
+    color: var(--accent-cyan);
+    border-bottom: 2px solid var(--accent-cyan);
+}
+
+.tab-content {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+}
